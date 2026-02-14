@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AGE_GROUP_LABELS, DENOMINATION_LABELS, type AgeGroup, type Denomination } from "@/lib/types"
 import { ProtectedRoute } from "@/components/auth/protected-route"
-import { supabase } from "@/lib/supabase/client"
+import { createClient } from "@supabase/supabase-js"
 
 export default function CreateTournamentPage() {
   const router = useRouter()
