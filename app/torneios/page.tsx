@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ProtectedRoute } from "@/components/auth/protected-route"
-import { supabase } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/client" // <-- corrigido
 import { TOURNAMENT_STATUS_LABELS, AGE_GROUP_LABELS, DENOMINATION_LABELS, type TournamentStatus, type AgeGroup, type Denomination } from "@/lib/types"
 
 const statusColors: Record<TournamentStatus, string> = {
@@ -24,6 +24,9 @@ export default function TournamentsPage() {
   const [denomFilter, setDenomFilter] = useState<string>("all")
   const [tournaments, setTournaments] = useState<any[]>([])
   const [loading, setLoading] = useState<boolean>(true)
+
+  // Criar instância do Supabase
+  const supabase = createClient()
 
   // Buscar torneios do Supabase
   useEffect(() => {
@@ -43,7 +46,7 @@ export default function TournamentsPage() {
     }
 
     fetchTournaments()
-  }, [])
+  }, [supabase])
 
   // Aplicar filtros
   const filtered = tournaments.filter((t) => {
