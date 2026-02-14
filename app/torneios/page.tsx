@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ProtectedRoute } from "@/components/auth/protected-route"
-import { supabase } from "@/lib/supabase/clients"
+import { supabase } from "@/lib/supabase/client"
 import { TOURNAMENT_STATUS_LABELS, AGE_GROUP_LABELS, DENOMINATION_LABELS, type TournamentStatus, type AgeGroup, type Denomination } from "@/lib/types"
 
 const statusColors: Record<TournamentStatus, string> = {
