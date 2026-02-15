@@ -10,13 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   TOURNAMENT_STATUS_LABELS,
   AGE_GROUP_LABELS,
-  DENOMINATION_LABELS,
   type TournamentStatus,
   type AgeGroup,
-  type Denomination,
 } from "@/lib/types"
 import { ProtectedRoute } from "@/components/auth/protected-route"
-import { createClient } from "@/lib/supabase/client" // <- ajuste o path se o seu for outro
+import { createClient } from "@/lib/supabase/client" // ajuste se necessário
 
 type TournamentRow = {
   id: string
@@ -24,9 +22,9 @@ type TournamentRow = {
   description: string | null
   status: TournamentStatus
   age_group: AgeGroup
-  denomination: Denomination
-  start_date: string
-  total_teams: number
+  start_date: string // timestamptz vem como string
+  current_participants: number
+  max_participants: number
 }
 
 const statusColors: Record<TournamentStatus, string> = {
@@ -39,9 +37,6 @@ const statusColors: Record<TournamentStatus, string> = {
 export default function TournamentsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [ageFilter, setAgeFilter] = useState<string>("all")
-  const [denomFilter, setDenomFilter] = useState<string>("all")
-  const [tournaments, setTournaments] = useState<any[]>([])
-  const [loading, setLoading] = useState<boolean>(true)
 
   const [tournaments, setTournaments] = useState<TournamentRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -55,12 +50,11 @@ export default function TournamentsPage() {
 
     let query = supabase
       .from("tournaments")
-      .select("id,name,description,status,age_group,denomination,start_date,total_teams")
+      .select("id,name,description,status,age_group,start_date,current_participants,max_participants")
       .order("start_date", { ascending: true })
 
     if (statusFilter !== "all") query = query.eq("status", statusFilter)
     if (ageFilter !== "all") query = query.eq("age_group", ageFilter)
-    if (denomFilter !== "all") query = query.eq("denomination", denomFilter)
 
     const { data, error } = await query
 
@@ -77,7 +71,7 @@ export default function TournamentsPage() {
   useEffect(() => {
     fetchTournaments()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, ageFilter, denomFilter])
+  }, [statusFilter, ageFilter])
 
   return (
     <ProtectedRoute>
@@ -89,6 +83,7 @@ export default function TournamentsPage() {
             </h1>
             <p className="mt-1 text-muted-foreground">Explore e participe dos torneios biblicos</p>
           </div>
+
           <Link href="/torneios/criar">
             <Button className="gradient-primary text-primary-foreground gap-2">
               <Plus className="h-4 w-4" /> Criar Torneio
@@ -100,6 +95,7 @@ export default function TournamentsPage() {
         <Card className="mb-6 border-0 shadow-sm">
           <CardContent className="flex flex-wrap items-center gap-3 p-4">
             <Filter className="h-4 w-4 text-muted-foreground" />
+
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Status" />
@@ -121,20 +117,6 @@ export default function TournamentsPage() {
               <SelectContent>
                 <SelectItem value="all">Todas as Faixas</SelectItem>
                 {(Object.entries(AGE_GROUP_LABELS) as [AgeGroup, string][]).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>
-                    {v}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={denomFilter} onValueChange={setDenomFilter}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Denominacao" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {(Object.entries(DENOMINATION_LABELS) as [Denomination, string][]).map(([k, v]) => (
                   <SelectItem key={k} value={k}>
                     {v}
                   </SelectItem>
@@ -169,16 +151,20 @@ export default function TournamentsPage() {
                       <h3 className="font-bold leading-tight text-balance">{t.name}</h3>
                       <Badge className={statusColors[t.status]}>{TOURNAMENT_STATUS_LABELS[t.status]}</Badge>
                     </div>
+
                     <p className="line-clamp-2 text-sm text-muted-foreground">{t.description ?? ""}</p>
+
                     <div className="mt-auto flex flex-wrap items-center gap-3 pt-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Users className="h-3.5 w-3.5" />
-                        {t.total_teams} equipes
+                        {t.current_participants}/{t.max_participants} participantes
                       </span>
+
                       <span className="flex items-center gap-1">
                         <Star className="h-3.5 w-3.5" />
                         {AGE_GROUP_LABELS[t.age_group]}
                       </span>
+
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3.5 w-3.5" />
                         {new Date(t.start_date).toLocaleDateString("pt-BR")}
@@ -194,4 +180,3 @@ export default function TournamentsPage() {
     </ProtectedRoute>
   )
 }
-

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Trophy, Save } from "lucide-react"
@@ -13,50 +13,81 @@ import { AGE_GROUP_LABELS, DENOMINATION_LABELS, type AgeGroup, type Denomination
 import { ProtectedRoute } from "@/components/auth/protected-route"
 import { createClient } from "@supabase/supabase-js"
 
+function dateToTimestamptz(dateYYYYMMDD: string) {
+  // "2026-02-15" -> "2026-02-15T00:00:00.000Z"
+  // Se quiser horário local, dá pra ajustar depois.
+  return new Date(`${dateYYYYMMDD}T00:00:00.000Z`).toISOString()
+}
+
 export default function CreateTournamentPage() {
   const router = useRouter()
+
+  const supabase = useMemo(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!url || !anon) {
+      console.error("Faltando NEXT_PUBLIC_SUPABASE_URL ou NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    }
+    return createClient(url!, anon!)
+  }, [])
 
   // States do formulário
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [startDate, setStartDate] = useState("")
   const [teamSize, setTeamSize] = useState("5")
-  const [answerTime, setAnswerTime] = useState("30")
+  const [answerTime, setAnswerTime] = useState("30") // (não será salvo, não existe coluna)
   const [ageGroup, setAgeGroup] = useState<AgeGroup>("young_adults")
-  const [denomination, setDenomination] = useState<Denomination>("universal")
+  const [denomination, setDenomination] = useState<Denomination>("universal") // (não salva, não existe coluna)
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
-    // Inserir no Supabase
-    const { data, error } = await supabase
-      .from("tournaments")
-      .insert([
-        {
-          name,
-          description,
-          start_date: startDate,
-          end_date: startDate, // ou você pode criar outro input para data de fim
-          max_participants: Number(teamSize) * 10, // ajuste conforme sua lógica
-          current_participants: 0,
-          age_group: ageGroup,
-          denomination: denomination,
-          status: "upcoming", // padrão
-        },
-      ])
-      .select() // retorna o registro inserido
+    try {
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser()
 
-    if (error) {
-      console.error("Erro ao criar torneio:", error)
-      alert("Erro ao criar torneio: " + error.message)
+      if (userErr) throw userErr
+      if (!user) {
+        alert("Você precisa estar logado.")
+        return
+      }
+
+      if (!startDate) {
+        alert("Selecione a data de início.")
+        return
+      }
+
+      const start = dateToTimestamptz(startDate)
+      const end = dateToTimestamptz(startDate)
+
+      const payload = {
+        name,
+        description,
+        start_date: start,
+        end_date: end,
+        status: "upcoming",
+        max_participants: Number(teamSize) * 10, // ajuste sua regra aqui
+        current_participants: 0,
+        age_group: ageGroup, // ✅ existe no schema
+        created_by: user.id, // ✅ uuid
+      }
+
+      const { data, error } = await supabase.from("tournaments").insert([payload]).select().single()
+
+      if (error) throw error
+
+      router.push("/torneios")
+    } catch (err: any) {
+      console.error("Erro ao criar torneio:", err)
+      alert("Erro ao criar torneio: " + (err?.message ?? "erro desconhecido"))
+    } finally {
       setLoading(false)
-      return
     }
-
-    setLoading(false)
-    router.push("/torneios") // redireciona após criar
   }
 
   return (
@@ -79,7 +110,6 @@ export default function CreateTournamentPage() {
         <Card className="border-0 shadow-lg">
           <CardContent className="p-6">
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-              {/* Nome do Torneio */}
               <div className="flex flex-col gap-2">
                 <Label htmlFor="name" className="font-semibold">Nome do Torneio</Label>
                 <Input
@@ -91,7 +121,6 @@ export default function CreateTournamentPage() {
                 />
               </div>
 
-              {/* Descrição */}
               <div className="flex flex-col gap-2">
                 <Label htmlFor="desc" className="font-semibold">Descricao</Label>
                 <textarea
@@ -105,7 +134,6 @@ export default function CreateTournamentPage() {
                 />
               </div>
 
-              {/* Data de Inicio e Tamanho da Equipe */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="start" className="font-semibold">Data de Inicio</Label>
@@ -117,6 +145,7 @@ export default function CreateTournamentPage() {
                     required
                   />
                 </div>
+
                 <div className="flex flex-col gap-2">
                   <Label className="font-semibold">Tamanho da Equipe</Label>
                   <Select value={teamSize} onValueChange={setTeamSize}>
@@ -130,7 +159,6 @@ export default function CreateTournamentPage() {
                 </div>
               </div>
 
-              {/* Faixa Etaria e Denominação */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-2">
                   <Label className="font-semibold">Faixa Etaria</Label>
@@ -143,6 +171,7 @@ export default function CreateTournamentPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="flex flex-col gap-2">
                   <Label className="font-semibold">Denominacao</Label>
                   <Select value={denomination} onValueChange={(v) => setDenomination(v as Denomination)}>
@@ -153,10 +182,12 @@ export default function CreateTournamentPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    (Ainda não salva no banco porque não existe a coluna <b>denomination</b> na tabela.)
+                  </p>
                 </div>
               </div>
 
-              {/* Tempo de Resposta */}
               <div className="flex flex-col gap-2">
                 <Label className="font-semibold">Tempo de Resposta</Label>
                 <Select value={answerTime} onValueChange={setAnswerTime}>
@@ -167,9 +198,11 @@ export default function CreateTournamentPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  (Não está salvando no banco porque não existe coluna para isso.)
+                </p>
               </div>
 
-              {/* Botão de Criar */}
               <Button
                 type="submit"
                 size="lg"
