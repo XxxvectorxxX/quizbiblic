@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Trophy, Save } from "lucide-react"
@@ -9,94 +9,69 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AGE_GROUP_LABELS, DENOMINATION_LABELS, type AgeGroup, type Denomination } from "@/lib/types"
+import { AGE_GROUP_LABELS, type AgeGroup } from "@/lib/types"
 import { ProtectedRoute } from "@/components/auth/protected-route"
-import { createClient } from "@supabase/supabase-js"
-
-function dateToTimestamptz(dateYYYYMMDD: string) {
-  // "2026-02-15" -> "2026-02-15T00:00:00.000Z"
-  // Se quiser horário local, dá pra ajustar depois.
-  return new Date(`${dateYYYYMMDD}T00:00:00.000Z`).toISOString()
-}
+import { createClient } from "@/lib/supabase/client" // ✅ use o seu client do browser
 
 export default function CreateTournamentPage() {
   const router = useRouter()
+  const supabase = createClient() // ✅ instancia aqui
 
-  const supabase = useMemo(() => {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!url || !anon) {
-      console.error("Faltando NEXT_PUBLIC_SUPABASE_URL ou NEXT_PUBLIC_SUPABASE_ANON_KEY")
-    }
-    return createClient(url!, anon!)
-  }, [])
-
-  // States do formulário
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [startDate, setStartDate] = useState("")
   const [teamSize, setTeamSize] = useState("5")
-  const [answerTime, setAnswerTime] = useState("30") // (não será salvo, não existe coluna)
+  const [answerTime, setAnswerTime] = useState("30")
   const [ageGroup, setAgeGroup] = useState<AgeGroup>("young_adults")
-  const [denomination, setDenomination] = useState<Denomination>("universal") // (não salva, não existe coluna)
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
-    try {
-      const {
-        data: { user },
-        error: userErr,
-      } = await supabase.auth.getUser()
+    // ✅ garante sessão
+    const { data: userData, error: userErr } = await supabase.auth.getUser()
+    const user = userData?.user
 
-      if (userErr) throw userErr
-      if (!user) {
-        alert("Você precisa estar logado.")
-        return
-      }
+    if (userErr || !user) {
+      setLoading(false)
+      alert("Você precisa estar logado para criar um torneio.")
+      router.push("/auth/login")
+      return
+    }
 
-      if (!startDate) {
-        alert("Selecione a data de início.")
-        return
-      }
+    // timestamptz: manda ISO
+    const startISO = new Date(`${startDate}T00:00:00`).toISOString()
 
-      const start = dateToTimestamptz(startDate)
-      const end = dateToTimestamptz(startDate)
-
-      const payload = {
+    const { error } = await supabase.from("tournaments").insert([
+      {
         name,
         description,
-        start_date: start,
-        end_date: end,
-        status: "upcoming",
-        max_participants: Number(teamSize) * 10, // ajuste sua regra aqui
+        start_date: startISO,
+        end_date: startISO,
+        max_participants: Number(teamSize) * 10,
         current_participants: 0,
-        age_group: ageGroup, // ✅ existe no schema
-        created_by: user.id, // ✅ uuid
-      }
+        age_group: ageGroup,
+        status: "upcoming",
+        created_by: user.id, // ✅ sua tabela tem essa coluna
+      },
+    ])
 
-      const { data, error } = await supabase.from("tournaments").insert([payload]).select().single()
-
-      if (error) throw error
-
-      router.push("/torneios")
-    } catch (err: any) {
-      console.error("Erro ao criar torneio:", err)
-      alert("Erro ao criar torneio: " + (err?.message ?? "erro desconhecido"))
-    } finally {
+    if (error) {
+      console.error(error)
+      alert("Erro ao criar torneio: " + error.message)
       setLoading(false)
+      return
     }
+
+    setLoading(false)
+    router.push("/torneios")
   }
 
   return (
     <ProtectedRoute>
       <div className="mx-auto max-w-2xl px-4 py-8">
-        <Link
-          href="/torneios"
-          className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
+        <Link href="/torneios" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" /> Voltar para Torneios
         </Link>
 
@@ -112,20 +87,13 @@ export default function CreateTournamentPage() {
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="name" className="font-semibold">Nome do Torneio</Label>
-                <Input
-                  id="name"
-                  placeholder="Ex: Copa Biblica Nacional 2025"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
               </div>
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="desc" className="font-semibold">Descricao</Label>
                 <textarea
                   id="desc"
-                  placeholder="Descreva o torneio..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
@@ -137,13 +105,7 @@ export default function CreateTournamentPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="start" className="font-semibold">Data de Inicio</Label>
-                  <Input
-                    id="start"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    required
-                  />
+                  <Input id="start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -159,33 +121,16 @@ export default function CreateTournamentPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                  <Label className="font-semibold">Faixa Etaria</Label>
-                  <Select value={ageGroup} onValueChange={(v) => setAgeGroup(v as AgeGroup)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {(Object.entries(AGE_GROUP_LABELS) as [AgeGroup, string][]).map(([k, v]) => (
-                        <SelectItem key={k} value={k}>{v}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <Label className="font-semibold">Denominacao</Label>
-                  <Select value={denomination} onValueChange={(v) => setDenomination(v as Denomination)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {(Object.entries(DENOMINATION_LABELS) as [Denomination, string][]).map(([k, v]) => (
-                        <SelectItem key={k} value={k}>{v}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    (Ainda não salva no banco porque não existe a coluna <b>denomination</b> na tabela.)
-                  </p>
-                </div>
+              <div className="flex flex-col gap-2">
+                <Label className="font-semibold">Faixa Etaria</Label>
+                <Select value={ageGroup} onValueChange={(v) => setAgeGroup(v as AgeGroup)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.entries(AGE_GROUP_LABELS) as [AgeGroup, string][]).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex flex-col gap-2">
@@ -198,17 +143,9 @@ export default function CreateTournamentPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  (Não está salvando no banco porque não existe coluna para isso.)
-                </p>
               </div>
 
-              <Button
-                type="submit"
-                size="lg"
-                className="gradient-primary text-primary-foreground gap-2 mt-2"
-                disabled={loading}
-              >
+              <Button type="submit" size="lg" className="gradient-primary text-primary-foreground gap-2 mt-2" disabled={loading}>
                 <Save className="h-5 w-5" /> {loading ? "Criando..." : "Criar Torneio"}
               </Button>
             </form>
