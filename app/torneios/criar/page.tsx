@@ -53,7 +53,7 @@ export default function CreateTournamentPage() {
         current_participants: 0,
         age_group: ageGroup,
         status: "upcoming",
-        created_by: user.id, // ✅ sua tabela tem essa coluna
+        created_by: user.id, 
       },
     ])
 
