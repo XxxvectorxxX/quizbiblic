@@ -3,81 +3,75 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LogIn } from "lucide-react"
+import { Loader2, LogIn, Trophy, Home } from "lucide-react"
 
 import { useAuth } from "@/lib/contexts/auth-context"
 import { Button } from "@/components/ui/button"
-import { LoginDialog } from "@/components/auth/login-dialog"
-import { Sidebar } from "@/components/ui/sidebar"
-import { Header } from "@/components/layout/header"
-import { Footer } from "@/components/layout/footer"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 
-function PublicTopbar({ onOpenLogin }: { onOpenLogin: () => void }) {
-  return (
-    <header className="h-14 border-b bg-background">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
-        <div className="font-extrabold">BibleQuiz</div>
-
-        <nav className="flex items-center gap-2">
-          <Link href="/">
-            <Button variant="ghost">Início</Button>
-          </Link>
-
-          <Link href="/torneios">
-            <Button variant="ghost">Torneios</Button>
-          </Link>
-
-          <Button onClick={onOpenLogin} className="gap-2">
-            <LogIn className="h-4 w-4" />
-            Entrar
-          </Button>
-        </nav>
-      </div>
-    </header>
-  )
-}
+// ✅ seu arquivo layout/sidebar.tsx exporta "Sidebar", não "AppSidebar"
+import { Sidebar as AppSidebar } from "@/components/layout/sidebar"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
   const { isLoggedIn, loading } = useAuth()
-  const [loginOpen, setLoginOpen] = React.useState(false)
+  const pathname = usePathname()
 
   if (loading) {
     return (
       <div className="min-h-svh flex items-center justify-center">
-        <div>Carregando…</div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
   }
 
-  // 🔹 DESLOGADO
+  // DESLOGADO: menu superior simples
   if (!isLoggedIn) {
     return (
-      <>
-        <PublicTopbar onOpenLogin={() => setLoginOpen(true)} />
-        <main className="min-h-[calc(100svh-56px)]">{children}</main>
-        <Footer />
+      <div className="min-h-svh flex flex-col">
+        <header className="border-b bg-background">
+          <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
+            <div className="font-extrabold">BibleQuiz</div>
 
-        <LoginDialog
-          open={loginOpen}
-          onOpenChange={setLoginOpen}
-          onSwitchToSignup={() => alert("Abra o modal de cadastro aqui.")}
-          redirectTo={pathname || "/"}
-        />
-      </>
+            <nav className="flex items-center gap-2">
+              <Button asChild variant="ghost" className="gap-2">
+                <Link href="/">
+                  <Home className="h-4 w-4" />
+                  Início
+                </Link>
+              </Button>
+
+              <Button asChild variant="ghost" className="gap-2">
+                <Link href="/torneios">
+                  <Trophy className="h-4 w-4" />
+                  Assistir Torneios
+                </Link>
+              </Button>
+
+              <Button asChild className="gap-2">
+                <Link href={pathname || "/"}>
+                  <LogIn className="h-4 w-4" />
+                  Entrar
+                </Link>
+              </Button>
+            </nav>
+          </div>
+        </header>
+
+        <main className="flex-1">{children}</main>
+      </div>
     )
   }
 
-  // 🔹 LOGADO
+  // LOGADO: só sidebar (sem header)
   return (
-    <div className="flex min-h-svh w-full">
-      <Sidebar />
+    <SidebarProvider defaultOpen>
+      <div className="flex min-h-svh w-full">
+        <AppSidebar />
 
-      <div className="flex min-h-svh flex-1 flex-col">
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <SidebarInset>
+          <main className="flex-1">{children}</main>
+        </SidebarInset>
       </div>
-    </div>
+    </SidebarProvider>
   )
 }
