@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next"
 import { Nunito, Geist_Mono } from "next/font/google"
+
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
-import { Providers } from "./providers"
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/layout/app-sidebar"
+import { AuthProvider } from "@/lib/contexts/auth-context"
+import { Sidebar } from "@/components/ui/sidebar"
+
 import "./globals.css"
 
 const nunito = Nunito({ subsets: ["latin"], variable: "--font-nunito" })
@@ -26,23 +27,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" className={`${nunito.variable} ${geistMono.variable}`}>
       <body className="font-sans antialiased">
-        <Providers>
-          <SidebarProvider defaultOpen>
-            <div className="flex min-h-svh w-full">
-              {/* SIDEBAR */}
-              <AppSidebar />
+        <AuthProvider>
+          <div className="flex min-h-svh w-full">
+            {/* SIDEBAR */}
+            <Sidebar />
 
-              {/* CONTEÚDO */}
-              <SidebarInset>
-                <div className="flex min-h-svh flex-col">
-                  <Header />
-                  <main className="flex-1">{children}</main>
-                  <Footer />
-                </div>
-              </SidebarInset>
+            {/* CONTEÚDO */}
+            <div className="flex min-h-svh flex-1 flex-col">
+              <Header />
+              <main className="flex-1">{children}</main>
+              <Footer />
             </div>
-          </SidebarProvider>
-        </Providers>
+          </div>
+        </AuthProvider>
       </body>
     </html>
   )
