@@ -8,13 +8,17 @@ import { Loader2, LogIn, Trophy, Home } from "lucide-react"
 import { useAuth } from "@/lib/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
-
-// ✅ seu arquivo layout/sidebar.tsx exporta "Sidebar", não "AppSidebar"
 import { Sidebar as AppSidebar } from "@/components/layout/sidebar"
+
+// ✅ IMPORTA O MODAL
+import { LoginDialog } from "@/components/auth/login-dialog"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { isLoggedIn, loading } = useAuth()
   const pathname = usePathname()
+
+  // ✅ estado do modal
+  const [loginOpen, setLoginOpen] = React.useState(false)
 
   if (loading) {
     return (
@@ -24,7 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // DESLOGADO: menu superior simples
+  // DESLOGADO: header simples + modal de login
   if (!isLoggedIn) {
     return (
       <div className="min-h-svh flex flex-col">
@@ -33,31 +37,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="font-extrabold">BibleQuiz</div>
 
             <nav className="flex items-center gap-2">
-              <Button asChild variant="ghost" className="gap-2">
+              <Button asChild variant="ghost" className="gap-2" type="button">
                 <Link href="/">
                   <Home className="h-4 w-4" />
                   Início
                 </Link>
               </Button>
 
-              <Button asChild variant="ghost" className="gap-2">
+              <Button asChild variant="ghost" className="gap-2" type="button">
                 <Link href="/torneios">
                   <Trophy className="h-4 w-4" />
                   Assistir Torneios
                 </Link>
               </Button>
 
-              <Button asChild className="gap-2">
-                <Link href={pathname || "/"}>
-                  <LogIn className="h-4 w-4" />
-                  Entrar
-                </Link>
+              {/* ✅ AGORA ABRE MODAL (não é Link) */}
+              <Button
+                className="gap-2"
+                onClick={() => setLoginOpen(true)}
+                type="button"
+              >
+                <LogIn className="h-4 w-4" />
+                Entrar
               </Button>
             </nav>
           </div>
         </header>
 
         <main className="flex-1">{children}</main>
+
+        {/* ✅ MODAL DE LOGIN DISPONÍVEL NO MODO DESLOGADO */}
+        <LoginDialog
+          open={loginOpen}
+          onOpenChange={setLoginOpen}
+          onSwitchToSignup={() => alert("Abra o modal de cadastro aqui.")}
+        />
       </div>
     )
   }
@@ -67,7 +81,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <SidebarProvider defaultOpen>
       <div className="flex min-h-svh w-full">
         <AppSidebar />
-
         <SidebarInset>
           <main className="flex-1">{children}</main>
         </SidebarInset>
