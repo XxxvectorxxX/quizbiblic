@@ -3,7 +3,16 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Trophy, Zap, Home, LogIn, UserCircle, Shield } from "lucide-react"
+import {
+  Trophy,
+  Zap,
+  Home,
+  LogIn,
+  UserCircle,
+  Shield,
+  Church,
+  HelpCircle,
+} from "lucide-react"
 
 import { useAuth } from "@/lib/contexts/auth-context"
 import { Button } from "@/components/ui/button"
@@ -43,27 +52,28 @@ export function Sidebar() {
 
   const items: MenuItem[] = [
     { href: "/", label: "Início", icon: Home },
+
+    // 🔒 recursos comuns (exigem login)
     { href: "/quiz", label: "Quiz", icon: Zap, requiresAuth: true },
     { href: "/torneios", label: "Torneios", icon: Trophy, requiresAuth: true },
+
+    // 👑 admin only
+    { href: "/igrejas", label: "Igrejas", icon: Church, requiresAuth: true, adminOnly: true },
+    { href: "/perguntas", label: "Perguntas", icon: HelpCircle, requiresAuth: true, adminOnly: true },
     { href: "/admin", label: "Admin", icon: Shield, requiresAuth: true, adminOnly: true },
   ]
 
-  // ✅ Admin enxerga tudo
+  // ✅ Admin vê tudo; user comum não vê adminOnly
   function canSee(item: MenuItem) {
-    if (isAdmin) return true
-    if (item.adminOnly) return false
+    if (item.adminOnly) return isLoggedIn && isAdmin
     return true
   }
 
-  // ✅ Admin nunca fica travado
+  // ✅ Admin nunca fica travado; user comum trava em requiresAuth
   function isLocked(item: MenuItem) {
     if (isAdmin) return false
     if (!item.requiresAuth) return false
     return !isLoggedIn
-  }
-
-  function openLogin() {
-    setLoginOpen(true)
   }
 
   return (
@@ -74,7 +84,7 @@ export function Sidebar() {
             <div className="flex items-center justify-between">
               <div className="font-extrabold">BibleQuiz</div>
 
-              {isLoggedIn && profile?.role === "admin" ? (
+              {isLoggedIn && isAdmin ? (
                 <Badge variant="secondary" className="text-xs">
                   Admin
                 </Badge>
@@ -105,7 +115,7 @@ export function Sidebar() {
                       type="button"
                       isActive={false}
                       tooltip={`${item.label} (faça login)`}
-                      onClick={openLogin}
+                      onClick={() => setLoginOpen(true)}
                       className="opacity-80"
                     >
                       <Icon />
@@ -133,7 +143,7 @@ export function Sidebar() {
         <SidebarFooter className="gap-2">
           {!isLoggedIn ? (
             <div className="p-2">
-              <Button className="w-full gap-2" onClick={openLogin} type="button">
+              <Button className="w-full gap-2" onClick={() => setLoginOpen(true)} type="button">
                 <LogIn className="h-4 w-4" />
                 Entrar
               </Button>
@@ -154,20 +164,17 @@ export function Sidebar() {
                 <DropdownMenuContent align="end" className="w-60">
                   <DropdownMenuLabel className="truncate">{profile?.email ?? "Usuário"}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-
                   <DropdownMenuItem onClick={() => alert("Crie /conta depois se quiser.")}>
                     <UserCircle className="mr-2 h-4 w-4" />
                     Meu perfil
                   </DropdownMenuItem>
-
                   <DropdownMenuSeparator />
-
                   <DropdownMenuItem
                     onClick={async () => {
                       await logout()
                       setLoginOpen(false)
                       router.refresh()
-                      router.replace("/") // opcional: evita ficar em rota protegida
+                      router.replace("/")
                     }}
                     className="text-destructive focus:text-destructive"
                   >
