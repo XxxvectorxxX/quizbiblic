@@ -48,14 +48,22 @@ export function Sidebar() {
     { href: "/admin", label: "Admin", icon: Shield, requiresAuth: true, adminOnly: true },
   ]
 
+  // ✅ Admin enxerga tudo
   function canSee(item: MenuItem) {
-    if (item.adminOnly) return isLoggedIn && isAdmin
+    if (isAdmin) return true
+    if (item.adminOnly) return false
     return true
   }
 
+  // ✅ Admin nunca fica travado
   function isLocked(item: MenuItem) {
+    if (isAdmin) return false
     if (!item.requiresAuth) return false
     return !isLoggedIn
+  }
+
+  function openLogin() {
+    setLoginOpen(true)
   }
 
   return (
@@ -65,6 +73,7 @@ export function Sidebar() {
           <div className="px-2 pt-2">
             <div className="flex items-center justify-between">
               <div className="font-extrabold">BibleQuiz</div>
+
               {isLoggedIn && profile?.role === "admin" ? (
                 <Badge variant="secondary" className="text-xs">
                   Admin
@@ -96,7 +105,7 @@ export function Sidebar() {
                       type="button"
                       isActive={false}
                       tooltip={`${item.label} (faça login)`}
-                      onClick={() => setLoginOpen(true)}
+                      onClick={openLogin}
                       className="opacity-80"
                     >
                       <Icon />
@@ -124,7 +133,7 @@ export function Sidebar() {
         <SidebarFooter className="gap-2">
           {!isLoggedIn ? (
             <div className="p-2">
-              <Button className="w-full gap-2" onClick={() => setLoginOpen(true)} type="button">
+              <Button className="w-full gap-2" onClick={openLogin} type="button">
                 <LogIn className="h-4 w-4" />
                 Entrar
               </Button>
@@ -156,7 +165,9 @@ export function Sidebar() {
                   <DropdownMenuItem
                     onClick={async () => {
                       await logout()
+                      setLoginOpen(false)
                       router.refresh()
+                      router.replace("/") // opcional: evita ficar em rota protegida
                     }}
                     className="text-destructive focus:text-destructive"
                   >
