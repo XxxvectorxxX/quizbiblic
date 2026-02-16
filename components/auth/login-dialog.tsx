@@ -13,9 +13,10 @@ interface LoginDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSwitchToSignup: () => void
+  redirectTo?: string // ✅ opcional: pra você escolher pra onde vai depois do login
 }
 
-export function LoginDialog({ open, onOpenChange, onSwitchToSignup }: LoginDialogProps) {
+export function LoginDialog({ open, onOpenChange, onSwitchToSignup, redirectTo = "/" }: LoginDialogProps) {
   const router = useRouter()
   const { login } = useAuth()
 
@@ -26,14 +27,17 @@ export function LoginDialog({ open, onOpenChange, onSwitchToSignup }: LoginDialo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading) return
+
     setLoading(true)
     setError("")
 
     try {
-      const result = await login(email, password)
+      const result = await login(email.trim(), password)
 
       if (!result.success) {
         setError(result.error || "Email ou senha incorretos.")
+        setLoading(false)
         return
       }
 
@@ -42,14 +46,17 @@ export function LoginDialog({ open, onOpenChange, onSwitchToSignup }: LoginDialo
       setEmail("")
       setPassword("")
 
-      // ✅ garante que UI/server components “enxerguem” a sessão
+      // ✅ atualiza UI (sidebar, componentes, etc.)
       router.refresh()
 
-      // ✅ manda pra tela de perfil (ou /torneios, etc.)
-      router.replace("/perfil")
-    } catch {
+      // ✅ redireciona pra uma rota que EXISTE
+      router.replace(redirectTo)
+    } catch (err) {
+      console.error(err)
       setError("Erro ao fazer login. Tente novamente.")
+      setLoading(false)
     } finally {
+      // evita setLoading duplicado no fluxo de erro
       setLoading(false)
     }
   }
@@ -74,6 +81,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToSignup }: LoginDialo
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
             />
           </div>
 
@@ -86,6 +94,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToSignup }: LoginDialo
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
             />
           </div>
 
@@ -97,8 +106,12 @@ export function LoginDialog({ open, onOpenChange, onSwitchToSignup }: LoginDialo
           </Button>
 
           <p className="text-center text-sm text-muted-foreground">
-            {"Nao tem conta? "}
-            <button type="button" onClick={onSwitchToSignup} className="font-medium text-primary hover:underline">
+            {"Não tem conta? "}
+            <button
+              type="button"
+              onClick={onSwitchToSignup}
+              className="font-medium text-primary hover:underline"
+            >
               Cadastre-se
             </button>
           </p>
