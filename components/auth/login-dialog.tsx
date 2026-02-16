@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,7 +16,9 @@ interface LoginDialogProps {
 }
 
 export function LoginDialog({ open, onOpenChange, onSwitchToSignup }: LoginDialogProps) {
+  const router = useRouter()
   const { login } = useAuth()
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -25,15 +28,25 @@ export function LoginDialog({ open, onOpenChange, onSwitchToSignup }: LoginDialo
     e.preventDefault()
     setLoading(true)
     setError("")
+
     try {
       const result = await login(email, password)
-      if (result.success) {
-        onOpenChange(false)
-        setEmail("")
-        setPassword("")
-      } else {
+
+      if (!result.success) {
         setError(result.error || "Email ou senha incorretos.")
+        return
       }
+
+      // ✅ fecha modal e limpa
+      onOpenChange(false)
+      setEmail("")
+      setPassword("")
+
+      // ✅ garante que UI/server components “enxerguem” a sessão
+      router.refresh()
+
+      // ✅ manda pra tela de perfil (ou /torneios, etc.)
+      router.replace("/perfil")
     } catch {
       setError("Erro ao fazer login. Tente novamente.")
     } finally {
@@ -63,6 +76,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToSignup }: LoginDialo
               required
             />
           </div>
+
           <div className="flex flex-col gap-2">
             <Label htmlFor="login-password">Senha</Label>
             <Input
@@ -75,9 +89,7 @@ export function LoginDialog({ open, onOpenChange, onSwitchToSignup }: LoginDialo
             />
           </div>
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           <Button type="submit" className="gradient-primary text-primary-foreground" disabled={loading}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
